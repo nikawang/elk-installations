@@ -33,22 +33,30 @@ daemonset:
         paths:
           - /var/log/containers/*.log
         processors:
-        - add_kubernetes_metadata:
-            host: ${NODE_NAME}
-            namespace: elk
-            matchers:
-            - logs_path:
-                logs_path: "/var/log/containers/"
-      setup.template.name: "aks-elk"
-      setup.template.pattern: "aks-elk-*"
-      setup.ilm.rollover_alias: "aks-elk"
+          - add_kubernetes_metadata:
+              host: ${NODE_NAME}
+              matchers:
+              - logs_path:
+                  logs_path: "/var/log/containers/"
+      setup:
+        ilm.enabled: false
+        # ilm.policy_name: filebeat
+        template:
+          name: 'filebeat-stg'
+          pattern: 'filebeat-stg-*'
+          overwrite: true
+          enabled: true
       output.elasticsearch:
         username: 'elastic'
         password: 'changeme'
         protocol: "https"
         host: '${NODE_NAME}'
         hosts: '${ELASTICSEARCH_HOSTS:elasticsearch-master:9200}'
-        index: "aks-kube-system-%{+yyyy.MM.dd}"
+        index: "filebeat-stg-%{+yyyy.MM.dd}"
+        indices:
+        - index: "filebeat-stg-%{[kubernetes.namespace]}-%{+yyyy.MM.dd}"
+          when.regexp:
+            kubernetes.namespace: ".*"
         ssl.certificate_authorities:
         - /usr/share/filebeat/config/certs/tls.crt
   # Only used when updateStrategy is set to "RollingUpdate"
@@ -77,7 +85,7 @@ daemonset:
       memory: "100Mi"
     limits:
       cpu: "1000m"
-      memory: "200Mi"
+      memory: "1000Mi"
   tolerations: []
 
 deployment:
