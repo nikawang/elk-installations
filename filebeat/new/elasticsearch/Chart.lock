@@ -1,0 +1,9 @@
+dependencies:
+- name: common
+  repository: https://marketplace.azurecr.io/helm/v1/repo
+  version: 1.11.1
+- name: kibana
+  repository: https://marketplace.azurecr.io/helm/v1/repo
+  version: 9.3.3
+digest: sha256:f1bf40a51297be08870ab80358f5991107b0b589713435c1a90663aa69617d0a
+generated: "2022-02-11T20:07:48.498345087Z"
