@@ -1,0 +1,84 @@
+apiVersion: beat.k8s.elastic.co/v1beta1
+kind: Beat
+metadata:
+  name: quickstart
+spec:
+  type: filebeat
+  version: 7.15.0
+  elasticsearchRef:
+    name: quickstart
+  config:
+    http.enabled: true
+    filebeat:
+      autodiscover:
+        providers:
+          - type: kubernetes
+            node: ${NODE_NAME}
+            hints.enabled: true
+            hints.default_config:
+              # type: container
+              # paths:
+              #   - /var/log/containers/*.log
+    filebeat.inputs:
+    - type: container
+      paths:
+        - /var/log/containers/*.log
+      processors:
+        - add_kubernetes_metadata:
+            host: ${NODE_NAME}
+            matchers:
+            - logs_path:
+                logs_path: "/var/log/containers/"
+    setup:
+      ilm.enabled: false
+      # ilm.policy_name: filebeat
+      template:
+        name: 'filebeat-stg'
+        pattern: 'filebeat-stg-*'
+        overwrite: true
+        enabled: true
+    output.elasticsearch:
+      host: '${NODE_NAME}'
+      index: "filebeat-stg-%{+yyyy.MM.dd}"
+      indices:
+      - index: "filebeat-stg-%{[kubernetes.namespace]}-%{+yyyy.MM.dd}"
+        when.regexp:
+          kubernetes.namespace: ".*"
+  daemonSet:
+    podTemplate:
+      spec:
+        automountServiceAccountToken: true
+        dnsPolicy: ClusterFirstWithHostNet
+        hostNetwork: true
+        securityContext:
+          runAsUser: 0
+        containers:
+        - name: filebeat
+          env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
+          volumeMounts:
+          - name: varlogcontainers
+            mountPath: /var/log/containers
+          - name: varlogpods
+            mountPath: /var/log/pods
+          - name: varlibdockercontainers
+            mountPath: /var/lib/docker/containers
+        volumes:
+        - name: varlogcontainers
+          hostPath:
+            path: /var/log/containers
+        - name: varlogpods
+          hostPath:
+            path: /var/log/pods
+        - name: varlibdockercontainers
+          hostPath:
+            path: /var/lib/docker/containers
